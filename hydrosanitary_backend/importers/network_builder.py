@@ -2,7 +2,7 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
-from core.entities import Fixture, Node, Pipe
+from core.entities import Fixture, Node, Pipe, Room, Wall
 from core.standards import FIXTURE_DATABASE
 from importers.config import ImportConfig
 from services.project_manager import ProjectManager
@@ -15,6 +15,15 @@ class ImportResult:
     project: ProjectManager
     source_id: Optional[str]
     warnings: List[str] = field(default_factory=list)
+
+
+def _inside(x: float, y: float, polygon) -> bool:
+    """Ponto em polígono (ray casting)."""
+    inside = False
+    for (x0, y0), (x1, y1) in zip(polygon, polygon[1:] + polygon[:1]):
+        if (y0 > y) != (y1 > y) and x < (x1 - x0) * (y - y0) / (y1 - y0) + x0:
+            inside = not inside
+    return inside
 
 
 class NetworkBuilder:
@@ -68,6 +77,14 @@ class NetworkBuilder:
             return
         self.project.nodes[nid].fixtures.append(Fixture(key, data["weight"], data["min_pressure"]))
 
+    def add_wall(self, p0: Point, p1: Point) -> None:
+        if math.dist(p0[:2], p1[:2]) > 1e-9:
+            self.project.add_wall(Wall(p0[0], p0[1], p1[0], p1[1], min(p0[2], p1[2]), self.config.wall_height_m))
+
+    def add_room(self, name: str, polygon, z_floor: float = 0.0) -> None:
+        if len(polygon) >= 3:
+            self.project.add_room(Room(name, list(polygon), z_floor))
+
     def add_source(self, p: Point) -> None:
         nid = self._node_for(p, create=False)
         if nid is None:
@@ -78,6 +95,12 @@ class NetworkBuilder:
             self.warnings.append("Mais de uma fonte encontrada; usando a primeira.")
 
     def build(self) -> ImportResult:
+        for node in self.project.nodes.values():
+            if node.fixtures:
+                for room in self.project.rooms.values():
+                    if _inside(node.x_m, node.y_m, room.polygon):
+                        node.room = room.name
+                        break
         if self._source_id is None:
             self.warnings.append("Nenhuma fonte de água identificada.")
         return ImportResult(self.project, self._source_id, self.warnings)

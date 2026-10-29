@@ -37,7 +37,7 @@ class TestServices(unittest.TestCase):
     def test_project_summary(self):
         pm = ProjectManager()
         pm.add_pipe(Pipe("P1", "N1", "N2", 5.0, 20.0))
-        self.assertEqual(pm.get_project_summary(), {"total_nodes": 0, "total_pipes": 1})
+        self.assertEqual(pm.get_project_summary(), {"total_nodes": 0, "total_pipes": 1, "total_rooms": 0})
 
     def test_budget_uses_price_table_for_float_diameters(self):
         pipes = [Pipe("P1", "A", "B", 3.0, 20.0), Pipe("P2", "B", "C", 2.0, 20.0)]

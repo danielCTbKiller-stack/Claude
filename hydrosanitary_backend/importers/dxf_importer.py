@@ -34,10 +34,34 @@ def import_dxf(path: str, config: ImportConfig = None) -> ImportResult:
     def pt(x, y, z=0.0):
         return (x * k, y * k, z * k)
 
+    def polyline_points(e):
+        if e.dxftype() == "LWPOLYLINE":
+            pts = [pt(x, y, e.dxf.elevation) for x, y, *_ in e.get_points("xy")]
+            closed = e.closed
+        else:
+            pts = [pt(*v.dxf.location) for v in e.vertices]
+            closed = e.is_closed
+        return pts, closed
+
+    wall_layer = config.wall_layer.upper()
+    room_prefix = config.room_layer_prefix.upper()
     for e in doc.modelspace():
         layer = e.dxf.layer
         kind = e.dxftype()
-        if layer.upper().startswith(prefix):
+        if layer.upper() == wall_layer:
+            if kind == "LINE":
+                builder.add_wall(pt(*e.dxf.start), pt(*e.dxf.end))
+            elif kind in ("LWPOLYLINE", "POLYLINE"):
+                pts, closed = polyline_points(e)
+                if closed:
+                    pts.append(pts[0])
+                for a, b in zip(pts, pts[1:]):
+                    builder.add_wall(a, b)
+        elif layer.upper().startswith(room_prefix) and kind in ("LWPOLYLINE", "POLYLINE"):
+            pts, _ = polyline_points(e)
+            name = layer[len(config.room_layer_prefix):].lstrip("_- ").replace("_", " ") or "Cômodo"
+            builder.add_room(name, [(p[0], p[1]) for p in pts], pts[0][2] if pts else 0.0)
+        elif layer.upper().startswith(prefix):
             d = _diameter_from_layer(layer, config)
             if kind == "LINE":
                 builder.add_segment(pt(*e.dxf.start), pt(*e.dxf.end), d)

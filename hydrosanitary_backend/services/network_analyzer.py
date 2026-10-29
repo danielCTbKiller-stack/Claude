@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Dict, List
+from typing import Dict, Iterable, List, Optional
 
 from core.entities import Pipe
 from engine.hydraulic_calculator import HydraulicCalculator
@@ -56,11 +56,21 @@ class NetworkAnalyzer:
         source_pressure_mca: float,
         auto_size: bool = False,
         max_velocity: float = 3.0,
+        active_rooms: Optional[Iterable[str]] = None,
     ) -> dict:
         """
         Calcula vazão por trecho (pesos acumulados a jusante), opcionalmente
         dimensiona os diâmetros (alterando os trechos) e verifica a pressão em cada nó.
+
+        `active_rooms` simula uso simultâneo: só os aparelhos desses cômodos consomem
+        (None = todos). Trechos sem consumo a jusante ficam com vazão zero e sem alertas.
         """
+        active = None if active_rooms is None else set(active_rooms)
+
+        def used(nid):
+            return [f for f in self.project.nodes[nid].fixtures
+                    if active is None or self.project.nodes[nid].room in active]
+
         children, parent_pipe = self._build_tree(source_id)
         nodes = self.project.nodes
 
@@ -68,7 +78,7 @@ class NetworkAnalyzer:
         order = [source_id]
         for nid in order:
             order.extend(children[nid])
-        downstream_weight = {nid: sum(f.weight for f in nodes[nid].fixtures) for nid in order}
+        downstream_weight = {nid: sum(f.weight for f in used(nid)) for nid in order}
         for nid in reversed(order):
             if nid in parent_pipe:
                 p = parent_pipe[nid]
@@ -85,7 +95,7 @@ class NetworkAnalyzer:
             parent_id = pipe.start_node_id if pipe.end_node_id == nid else pipe.end_node_id
             flow = HydraulicCalculator.calculate_probable_flow(downstream_weight[nid])
 
-            if auto_size:
+            if auto_size and flow > 0:
                 chosen = select_diameter(flow, max_velocity)
                 if chosen is None:
                     alerts.append({
@@ -98,7 +108,7 @@ class NetworkAnalyzer:
             velocity = HydraulicCalculator.calculate_velocity(flow, pipe.diameter_mm)
             hf = HydraulicCalculator.calculate_head_loss(pipe, flow)
             check = HydraulicValidator.validate_pipe_limits(pipe.id, velocity, max_velocity)
-            if check["level"] != "OK":
+            if flow > 0 and check["level"] != "OK":
                 alerts.append(check)
 
             head_loss_to[nid] = head_loss_to[parent_id] + hf
@@ -110,7 +120,7 @@ class NetworkAnalyzer:
 
         node_results = {}
         for nid, pressure in pressures.items():
-            required = max((f.min_pressure_mca for f in nodes[nid].fixtures), default=0.0)
+            required = max((f.min_pressure_mca for f in used(nid)), default=0.0)
             ok = pressure >= required
             node_results[nid] = {"pressure_mca": pressure, "required_mca": required, "ok": ok}
             if not ok:

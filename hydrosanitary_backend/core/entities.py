@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Tuple
 
 
 @dataclass
@@ -18,6 +18,7 @@ class Node:
     fixtures: List[Fixture] = field(default_factory=list)
     x_m: float = 0.0       # posição em planta (para exibição)
     y_m: float = 0.0
+    room: str = ""         # cômodo onde o ponto está (vazio se desconhecido)
 
 
 @dataclass
@@ -30,3 +31,22 @@ class Pipe:
     diameter_mm: float
     material: str = "PVC Soldável"
     equivalent_length_m: float = 0.0  # Comprimento equivalente de conexões
+
+
+@dataclass
+class Wall:
+    """Parede (segmento em planta com altura), usada na visualização."""
+    x0_m: float
+    y0_m: float
+    x1_m: float
+    y1_m: float
+    z_base_m: float = 0.0
+    height_m: float = 2.7
+
+
+@dataclass
+class Room:
+    """Cômodo: contorno em planta e cota do piso."""
+    name: str
+    polygon: List[Tuple[float, float]]
+    z_floor_m: float = 0.0
