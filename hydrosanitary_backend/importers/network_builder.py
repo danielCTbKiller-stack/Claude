@@ -42,7 +42,7 @@ class NetworkBuilder:
         nid = f"N{len(self._points) + 1}"
         self._points.append(p)
         self._ids.append(nid)
-        self.project.add_node(Node(nid, elevation_m=p[2]))
+        self.project.add_node(Node(nid, elevation_m=p[2], x_m=p[0], y_m=p[1]))
         return nid
 
     def add_segment(self, p0: Point, p1: Point, diameter_mm: float) -> None:

@@ -30,3 +30,12 @@ Pontas a até `snap_tolerance_m` (5 cm) são unidas no mesmo nó. Aparelhos e fo
 fonte = elemento com "FONTE" no nome.
 
 DWG: converta para DXF antes (ex.: ODA File Converter).
+
+## Interface gráfica
+
+```
+pip install -r requirements.txt
+python -m gui.app [projeto.dxf|projeto.ifc]
+```
+Abra o projeto (Ctrl+O), ajuste pressão da fonte / velocidade máxima, marque dimensionamento automático se quiser e calcule (F5).
+A planta mostra tubos coloridos pela velocidade (verde ok, azul baixa, vermelho acima do limite) e nós com a pressão; passe o mouse para ver detalhes. Roda do mouse = zoom.

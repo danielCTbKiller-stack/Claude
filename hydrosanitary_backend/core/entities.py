@@ -16,6 +16,8 @@ class Node:
     id: str
     elevation_m: float      # Cota geométrica em relação à referência
     fixtures: List[Fixture] = field(default_factory=list)
+    x_m: float = 0.0       # posição em planta (para exibição)
+    y_m: float = 0.0
 
 
 @dataclass
