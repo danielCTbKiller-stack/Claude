@@ -114,7 +114,7 @@ class NetworkAnalyzer:
             head_loss_to[nid] = head_loss_to[parent_id] + hf
             pressures[nid] = source_pressure_mca + (source_elev - nodes[nid].elevation_m) - head_loss_to[nid]
             pipe_results[pipe.id] = {
-                "flow_lps": flow, "diameter_mm": pipe.diameter_mm,
+                "weight": downstream_weight[nid], "flow_lps": flow, "diameter_mm": pipe.diameter_mm,
                 "velocity_ms": velocity, "head_loss_mca": hf,
             }
 

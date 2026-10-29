@@ -61,6 +61,22 @@ class TestMainWindow(unittest.TestCase):
         self.assertEqual(some_flows.count("0.000"), 5)
         w.canvas.set_mode("plan"); w.canvas.rotate_view()  # não deve falhar
 
+    def test_export_pdf_and_html(self):
+        w = MainWindow()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "casa.dxf")
+            build(path)
+            w.load_file(path)
+            w.pressure.setValue(3.0)
+            w.run_analysis()
+            pdf, html = os.path.join(tmp, "m.pdf"), os.path.join(tmp, "m.html")
+            w.export_report(pdf)
+            w.export_report(html)
+            with open(pdf, "rb") as f:
+                self.assertEqual(f.read(4), b"%PDF")
+            with open(html, encoding="utf-8") as f:
+                self.assertIn("data:image/png;base64", f.read())
+
 
 if __name__ == "__main__":
     unittest.main()

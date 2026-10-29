@@ -14,6 +14,7 @@ from importers import import_project
 from importers.config import ImportConfig
 from services.budget_calculator import BudgetCalculator
 from services.network_analyzer import NetworkAnalyzer
+from services.report_generator import generate_memorial
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "import_config.json")
 
@@ -24,6 +25,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Hidrossanitário – Água fria")
         self.resize(1280, 780)
         self.import_result = None
+        self.project_name = "Projeto"
         self.last_result: Optional[dict] = None
 
         self.canvas = NetworkCanvas()
@@ -90,7 +92,8 @@ class MainWindow(QMainWindow):
         open_act = QAction("&Abrir projeto…", self, shortcut="Ctrl+O", triggered=self.open_file)
         calc_act = QAction("&Calcular", self, shortcut="F5", triggered=self.run_analysis)
         quit_act = QAction("&Sair", self, shortcut="Ctrl+Q", triggered=self.close)
-        menu.addActions([open_act, calc_act]); menu.addSeparator(); menu.addAction(quit_act)
+        export_act = QAction("&Exportar memorial de cálculo…", self, shortcut="Ctrl+E", triggered=self.export_report)
+        menu.addActions([open_act, calc_act, export_act]); menu.addSeparator(); menu.addAction(quit_act)
 
     def open_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Abrir projeto", "", "Projetos (*.dxf *.ifc)")
@@ -104,6 +107,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Erro ao abrir", str(exc))
             return
         r = self.import_result
+        self.project_name = os.path.splitext(os.path.basename(path))[0]
         self.source_label.setText(r.source_id or "não identificada")
         self.last_result = None
         self.alerts.clear()
@@ -122,6 +126,41 @@ class MainWindow(QMainWindow):
         self._fill_budget()
         self.statusBar().showMessage(
             f"{os.path.basename(path)}: {len(r.project.nodes)} nós, {len(r.project.pipes)} trechos.")
+
+    def report_html(self) -> str:
+        from PySide6.QtCore import QBuffer, QByteArray, QIODevice
+        data = QByteArray()  # precisa continuar referenciado enquanto o QBuffer o usa
+        buf = QBuffer(data)
+        buf.open(QIODevice.WriteOnly)
+        self.canvas.grab().save(buf, "PNG")
+        buf.close()
+        r = self.import_result
+        return generate_memorial(
+            r.project, self.last_result, source_id=r.source_id, source_pressure_mca=self.pressure.value(),
+            max_velocity=self.max_velocity.value(), auto_size=self.auto_size.isChecked(),
+            active_rooms=self.active_rooms(), project_name=self.project_name, image_png=bytes(data.data()))
+
+    def export_report(self, path: Optional[str] = None):
+        if self.last_result is None:
+            QMessageBox.information(self, "Exportar", "Calcule o projeto antes de exportar o memorial.")
+            return
+        if not path:
+            path, _ = QFileDialog.getSaveFileName(self, "Exportar memorial", "memorial_de_calculo.pdf",
+                                                  "PDF (*.pdf);;HTML (*.html)")
+        if not path:
+            return
+        html = self.report_html()
+        if path.lower().endswith(".html"):
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(html)
+        else:
+            from PySide6.QtGui import QPageSize, QPdfWriter, QTextDocument
+            writer = QPdfWriter(path)
+            writer.setPageSize(QPageSize(QPageSize.A4))
+            doc = QTextDocument()
+            doc.setHtml(html)
+            doc.print_(writer)
+        self.statusBar().showMessage(f"Memorial exportado: {path}")
 
     def active_rooms(self):
         if self.rooms_list.count() == 0:

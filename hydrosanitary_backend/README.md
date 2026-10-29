@@ -43,3 +43,7 @@ Abra o projeto (Ctrl+O), ajuste pressão da fonte / velocidade máxima, marque d
 A vista isométrica mostra pisos dos cômodos, paredes translúcidas e a tubulação por cima (há também a Planta e "Girar vista 90°"). Desmarque cômodos em "Cômodos consumindo" para simular uso simultâneo parcial. Os tubos aparecem em cinza quando não têm consumo. A planta mostra tubos coloridos pela velocidade (verde ok, azul baixa, vermelho acima do limite) e nós com a pressão; passe o mouse para ver detalhes. Roda do mouse = zoom.
 
 Exemplo completo (casa com banheiro, cozinha e área de serviço): `python examples/make_sample_house.py casa.dxf`.
+
+## Memorial de cálculo
+
+Na interface: calcule e use Arquivo → Exportar memorial de cálculo (Ctrl+E), em PDF ou HTML. Contém dados de entrada, vista isométrica, método, aparelhos, dimensionamento dos trechos, verificação de pressões, alertas e quantitativo. Em código: `services.report_generator.generate_memorial(...)`. Exemplo: `examples/memorial_exemplo.pdf`.

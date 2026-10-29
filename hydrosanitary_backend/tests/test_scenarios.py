@@ -58,3 +58,19 @@ class TestHouseScenario(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMemorial(unittest.TestCase):
+
+    def test_memorial_contents(self):
+        from services.report_generator import generate_memorial
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "casa.dxf")
+            build(path)
+            res = import_project(path)
+        out = NetworkAnalyzer(res.project).analyze(res.source_id, 3.0, auto_size=True)
+        html = generate_memorial(res.project, out, source_id=res.source_id, source_pressure_mca=3.0,
+                                 auto_size=True, project_name="Casa <exemplo>")
+        for text in ("Memorial de cálculo", "Casa &lt;exemplo&gt;", "chuveiro eletrico", "Banheiro",
+                     "Fair-Whipple-Hsiao", "Nenhum alerta", "Total"):
+            self.assertIn(text, html)
