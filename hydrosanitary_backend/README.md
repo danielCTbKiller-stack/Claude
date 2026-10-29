@@ -56,3 +56,10 @@ Na interface: calcule e use Arquivo → Exportar memorial de cálculo (Ctrl+E), 
 - cada conexão é contada no trecho que sai do nó, usando o diâmetro desse trecho; o Leq já informado no trecho é mantido e somado.
 
 Os valores da tabela são típicos de fabricante: confira com a tabela adotada no projeto.
+
+## Instalação no Windows (ex.: `C:\01 - HIDROSANITARIO`)
+
+1. Copie esta pasta para `C:\01 - HIDROSANITARIO`.
+2. Instale o Python 3.10+ (python.org, marcando "Add python.exe to PATH").
+3. Execute `instalar.bat` uma vez e depois `iniciar.bat` (ou arraste um .dxf/.ifc sobre ele).
+4. Opcional: `build_exe.bat` gera `dist\Hidrosanitario\Hidrosanitario.exe` (PyInstaller).
