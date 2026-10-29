@@ -43,6 +43,7 @@ def import_dxf(path: str, config: ImportConfig = None) -> ImportResult:
             closed = e.is_closed
         return pts, closed
 
+    fittings = []
     wall_layer = config.wall_layer.upper()
     room_prefix = config.room_layer_prefix.upper()
     for e in doc.modelspace():
@@ -79,7 +80,11 @@ def import_dxf(path: str, config: ImportConfig = None) -> ImportResult:
                     builder.add_segment(a, b, d)
         elif kind == "INSERT" and layer.upper() == config.fixture_layer.upper():
             builder.add_fixture(pt(*e.dxf.insert), e.dxf.name)
+        elif kind == "INSERT" and layer.upper() == config.fitting_layer.upper():
+            fittings.append((pt(*e.dxf.insert), e.dxf.name))
         elif kind == "INSERT" and layer.upper() == config.source_layer.upper():
             builder.add_source(pt(*e.dxf.insert))
 
+    for point, name in fittings:  # depois dos tubos, para encontrar os nós
+        builder.add_fitting(point, name)
     return builder.build()

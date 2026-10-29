@@ -2,9 +2,12 @@ from collections import deque
 from typing import Dict, Iterable, List, Optional
 
 from core.entities import Pipe
+from dataclasses import replace
+
 from engine.hydraulic_calculator import HydraulicCalculator
 from engine.sizing import select_diameter
 from engine.validator import HydraulicValidator
+from services.fittings import detect_fittings, fittings_equivalent_length
 from services.project_manager import ProjectManager
 
 
@@ -57,13 +60,16 @@ class NetworkAnalyzer:
         auto_size: bool = False,
         max_velocity: float = 3.0,
         active_rooms: Optional[Iterable[str]] = None,
+        auto_fittings: bool = False,
     ) -> dict:
         """
         Calcula vazão por trecho (pesos acumulados a jusante), opcionalmente
         dimensiona os diâmetros (alterando os trechos) e verifica a pressão em cada nó.
 
         `active_rooms` simula uso simultâneo: só os aparelhos desses cômodos consomem
-        (None = todos). Trechos sem consumo a jusante ficam com vazão zero e sem alertas.
+        (None = todos). `auto_fittings` soma ao trecho o comprimento equivalente das conexões
+        (joelhos e tês detectados pela geometria + registros informados no nó de chegada),
+        sem alterar `equivalent_length_m` do trecho. Trechos sem consumo a jusante ficam com vazão zero e sem alertas.
         """
         active = None if active_rooms is None else set(active_rooms)
 
@@ -106,7 +112,12 @@ class NetworkAnalyzer:
                     pipe.diameter_mm = chosen
 
             velocity = HydraulicCalculator.calculate_velocity(flow, pipe.diameter_mm)
-            hf = HydraulicCalculator.calculate_head_loss(pipe, flow)
+            fit_leq, fit_detail = 0.0, []
+            if auto_fittings:
+                names = detect_fittings(nodes, children, parent_pipe, parent_id, nid) + list(nodes[nid].fittings)
+                fit_leq, fit_detail = fittings_equivalent_length(names, pipe.diameter_mm)
+            total_eq = pipe.equivalent_length_m + fit_leq
+            hf = HydraulicCalculator.calculate_head_loss(replace(pipe, equivalent_length_m=total_eq), flow)
             check = HydraulicValidator.validate_pipe_limits(pipe.id, velocity, max_velocity)
             if flow > 0 and check["level"] != "OK":
                 alerts.append(check)
@@ -116,6 +127,7 @@ class NetworkAnalyzer:
             pipe_results[pipe.id] = {
                 "weight": downstream_weight[nid], "flow_lps": flow, "diameter_mm": pipe.diameter_mm,
                 "velocity_ms": velocity, "head_loss_mca": hf,
+                "equivalent_length_m": total_eq, "fittings": fit_detail,
             }
 
         node_results = {}

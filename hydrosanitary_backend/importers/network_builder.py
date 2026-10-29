@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 from core.entities import Fixture, Node, Pipe, Room, Wall
-from core.standards import FIXTURE_DATABASE
+from core.standards import EQUIVALENT_LENGTH_TABLE, FIXTURE_DATABASE
 from importers.config import ImportConfig
 from services.project_manager import ProjectManager
 
@@ -76,6 +76,17 @@ class NetworkBuilder:
             self.warnings.append(f"Aparelho '{key}' em {p} não encontra ponta de tubo; ignorado.")
             return
         self.project.nodes[nid].fixtures.append(Fixture(key, data["weight"], data["min_pressure"]))
+
+    def add_fitting(self, p: Point, key: str) -> None:
+        key = key.lower()
+        if key not in EQUIVALENT_LENGTH_TABLE:
+            self.warnings.append(f"Conexão '{key}' desconhecida; ignorada.")
+            return
+        nid = self._node_for(p, create=False)
+        if nid is None:
+            self.warnings.append(f"Conexão '{key}' em {p} não encontra ponto da rede; ignorada.")
+        else:
+            self.project.nodes[nid].fittings.append(key)
 
     def add_wall(self, p0: Point, p1: Point) -> None:
         if math.dist(p0[:2], p1[:2]) > 1e-9:

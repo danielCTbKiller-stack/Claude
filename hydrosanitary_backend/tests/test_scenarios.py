@@ -71,6 +71,10 @@ class TestMemorial(unittest.TestCase):
         out = NetworkAnalyzer(res.project).analyze(res.source_id, 3.0, auto_size=True)
         html = generate_memorial(res.project, out, source_id=res.source_id, source_pressure_mca=3.0,
                                  auto_size=True, project_name="Casa <exemplo>")
+        out2 = NetworkAnalyzer(res.project).analyze(res.source_id, 3.0, auto_size=True, auto_fittings=True)
+        html2 = generate_memorial(res.project, out2, source_id=res.source_id, source_pressure_mca=3.0)
+        self.assertIn("1× joelho 90° (1.10 m cada)", html2)
+        self.assertNotIn("Node(", html2)
         for text in ("Memorial de cálculo", "Casa &lt;exemplo&gt;", "chuveiro eletrico", "Banheiro",
                      "Fair-Whipple-Hsiao", "Nenhum alerta", "Total"):
             self.assertIn(text, html)

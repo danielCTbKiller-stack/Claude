@@ -47,3 +47,12 @@ Exemplo completo (casa com banheiro, cozinha e área de serviço): `python examp
 ## Memorial de cálculo
 
 Na interface: calcule e use Arquivo → Exportar memorial de cálculo (Ctrl+E), em PDF ou HTML. Contém dados de entrada, vista isométrica, método, aparelhos, dimensionamento dos trechos, verificação de pressões, alertas e quantitativo. Em código: `services.report_generator.generate_memorial(...)`. Exemplo: `examples/memorial_exemplo.pdf`.
+
+## Conexões (comprimento equivalente)
+
+`core/standards.py` traz a tabela de comprimentos equivalentes (PVC soldável) por diâmetro, com interpolação (`services/fittings.py`). Com `analyze(..., auto_fittings=True)` (caixa marcada na interface):
+- joelhos 45°/90° e tês (passagem direta, saída lateral, saída bilateral) são detectados pela geometria dos nós;
+- registros (`registro_gaveta`, `registro_globo`) são informados como blocos na layer `AF_CONEXAO`, sobre um ponto da rede, e contam no trecho que chega a ele;
+- cada conexão é contada no trecho que sai do nó, usando o diâmetro desse trecho; o Leq já informado no trecho é mantido e somado.
+
+Os valores da tabela são típicos de fabricante: confira com a tabela adotada no projeto.

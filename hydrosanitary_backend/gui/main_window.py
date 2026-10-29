@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
         self.last_result: Optional[dict] = None
 
         self.canvas = NetworkCanvas()
-        self.pipe_table = self._table(["Trecho", "Q (L/s)", "DN (mm)", "v (m/s)", "hf (mca)"])
+        self.pipe_table = self._table(["Trecho", "Q (L/s)", "DN (mm)", "v (m/s)", "hf (mca)", "Leq (m)"])
         self.node_table = self._table(["Nó", "Cota (m)", "Pressão (mca)", "Mínima (mca)", "Situação"])
         self.budget_table = self._table(["Material", "Qtd (m)", "Preço un.", "Total"])
         self.alerts = QListWidget()
@@ -63,6 +63,9 @@ class MainWindow(QMainWindow):
         self.max_velocity = QDoubleSpinBox(); self.max_velocity.setRange(0.5, 10); self.max_velocity.setValue(3.0)
         self.max_velocity.setSingleStep(0.1); self.max_velocity.setSuffix(" m/s")
         self.auto_size = QCheckBox("Dimensionar diâmetros automaticamente")
+        self.fittings_check = QCheckBox("Considerar conexões (comprimento equivalente)")
+        self.fittings_check.setChecked(True)
+        self.fittings_check.stateChanged.connect(lambda _: self.run_analysis(quiet=True))
         self.source_label = QLabel("–")
         self.rooms_list = QListWidget()
         self.rooms_list.setMaximumHeight(130)
@@ -74,6 +77,7 @@ class MainWindow(QMainWindow):
         form.addRow("Pressão na fonte", self.pressure)
         form.addRow("Velocidade máxima", self.max_velocity)
         form.addRow(self.auto_size)
+        form.addRow(self.fittings_check)
         form.addRow("Fonte", self.source_label)
         form.addRow("Cômodos consumindo", self.rooms_list)
         form.addRow(run)
@@ -181,7 +185,7 @@ class MainWindow(QMainWindow):
         try:
             result = NetworkAnalyzer(r.project).analyze(
                 r.source_id, self.pressure.value(), self.auto_size.isChecked(), self.max_velocity.value(),
-                active_rooms=self.active_rooms())
+                active_rooms=self.active_rooms(), auto_fittings=self.fittings_check.isChecked())
         except ValueError as exc:
             QMessageBox.warning(self, "Calcular", str(exc))
             return
@@ -195,7 +199,7 @@ class MainWindow(QMainWindow):
     def _fill_results(self, result):
         project = self.import_result.project
         self._fill(self.pipe_table, [
-            (pid, f"{p['flow_lps']:.3f}", f"{p['diameter_mm']:g}", f"{p['velocity_ms']:.2f}", f"{p['head_loss_mca']:.3f}")
+            (pid, f"{p['flow_lps']:.3f}", f"{p['diameter_mm']:g}", f"{p['velocity_ms']:.2f}", f"{p['head_loss_mca']:.3f}", f"{p['equivalent_length_m']:.2f}")
             for pid, p in result["pipes"].items()])
         self._fill(self.node_table, [
             (nid, f"{project.nodes[nid].elevation_m:.2f}", f"{n['pressure_mca']:.2f}",

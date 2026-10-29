@@ -3,6 +3,7 @@ from datetime import date
 from html import escape
 from typing import Iterable, Optional
 
+from core.standards import FITTING_LABELS
 from services.budget_calculator import BudgetCalculator
 from services.project_manager import ProjectManager
 
@@ -66,7 +67,7 @@ def generate_memorial(
                  "<li>Vazão provável (método dos pesos, NBR 5626): Q = 0,3·√ΣP [L/s], com ΣP a soma dos pesos dos aparelhos a jusante do trecho.</li>"
                  "<li>Velocidade: v = Q / A, com A a área da seção circular do diâmetro interno.</li>"
                  "<li>Perda de carga (Fair-Whipple-Hsiao, PVC, água fria): J = 0,0008695·Q<sup>1,75</sup> / D<sup>4,75</sup> "
-                 "[m/m, Q em m³/s, D em m]; hf = J·(L + Leq).</li>"
+                 "[m/m, Q em m³/s, D em m]; hf = J·(L + Leq), com Leq o comprimento equivalente das conexões (tabela de PVC soldável por diâmetro).</li>"
                  "<li>Pressão no nó = pressão na fonte + (cota da fonte − cota do nó) − Σhf do caminho.</li></ul>")
 
     parts.append("<h2>3. Aparelhos atendidos</h2>")
@@ -89,9 +90,21 @@ def generate_memorial(
         else:
             status = "OK"
         rows.append(_row([e(pid), f"{e(pipe.start_node_id)} → {e(pipe.end_node_id)}", f"{pipe.length_m:.2f}",
-                          f"{pipe.equivalent_length_m:.2f}", f"{r['diameter_mm']:g}", f"{r.get('weight', 0):.2f}",
+                          f"{r.get('equivalent_length_m', pipe.equivalent_length_m):.2f}", f"{r['diameter_mm']:g}", f"{r.get('weight', 0):.2f}",
                           f"{r['flow_lps']:.3f}", f"{r['velocity_ms']:.2f}", f"{r['head_loss_mca']:.3f}", status]))
     parts.append(_table(["Trecho", "De → Para", "L (m)", "Leq (m)", "DN (mm)", "ΣP", "Q (L/s)", "v (m/s)", "hf (mca)", "Situação"], rows))
+
+    detail_rows = []
+    for pid, r in result["pipes"].items():
+        if r.get("fittings"):
+            counts = {}
+            for name, leq in r["fittings"]:
+                counts.setdefault(name, [0, leq])[0] += 1
+            text = "; ".join(f"{v[0]}× {FITTING_LABELS.get(k, k)} ({v[1]:.2f} m cada)" for k, v in counts.items())
+            detail_rows.append(_row([e(pid), f"<span style='text-align:left'>{text}</span>", f"{sum(l for _, l in r['fittings']):.2f}"]))
+    if detail_rows:
+        parts.append("<h3>Conexões consideradas (comprimento equivalente)</h3>")
+        parts.append(_table(["Trecho", "Conexões", "Leq (m)"], detail_rows))
 
     parts.append("<h2>5. Verificação de pressões</h2>")
     rows = []
@@ -115,6 +128,6 @@ def generate_memorial(
     parts.append(_table(["Material", "Qtd (m)", "Preço un.", "Total"], rows))
 
     parts.append("<p class='small'>Memorial gerado automaticamente. Escopo: rede ramificada de água fria; os resultados "
-                 "devem ser conferidos e assinados pelo engenheiro responsável. Comprimentos equivalentes de conexões "
-                 "só são considerados quando informados nos trechos.</p></body></html>")
+                 "devem ser conferidos e assinados pelo engenheiro responsável. Conexões: joelhos e tês detectados pela "
+                 "geometria; registros somente quando indicados no projeto.</p></body></html>")
     return "".join(parts)

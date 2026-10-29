@@ -50,6 +50,9 @@ def build(path: str) -> None:
                     ("lavatorio", (0.5, Y, 0.9)), ("pia_cozinha", (4.5, Y, 0.9)),
                     ("maquina_lavar", (7.5, Y, 0.9)), ("pia_cozinha", (9.0, Y, 0.9))]:  # o último é o tanque
         msp.add_blockref(name, p, dxfattribs={"layer": "AF_APARELHO"})
+    # Registros: geral da área de serviço (gaveta) e do banheiro (gaveta)
+    msp.add_blockref("registro_gaveta", (7.5, Y, 2.5), dxfattribs={"layer": "AF_CONEXAO"})
+    msp.add_blockref("registro_gaveta", (3.5, Y, 2.5), dxfattribs={"layer": "AF_CONEXAO"})
     doc.saveas(path)
 
 

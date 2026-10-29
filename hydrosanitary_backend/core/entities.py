@@ -19,6 +19,7 @@ class Node:
     x_m: float = 0.0       # posição em planta (para exibição)
     y_m: float = 0.0
     room: str = ""         # cômodo onde o ponto está (vazio se desconhecido)
+    fittings: List[str] = field(default_factory=list)  # conexões informadas no ponto (ex.: registro_gaveta)
 
 
 @dataclass

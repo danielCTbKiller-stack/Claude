@@ -14,6 +14,9 @@ class ImportConfig:
       - Aparelhos: blocos (INSERT) na layer `fixture_layer`; o NOME DO BLOCO é a chave
         de `FIXTURE_DATABASE` (ex.: chuveiro_eletrico) ou um apelido em `fixture_aliases`.
       - Fonte de água (reservatório/ramal): qualquer bloco na layer `source_layer`.
+      - Registros: blocos na layer `fitting_layer`, nome = registro_gaveta | registro_globo, sobre
+        um ponto da rede (o registro conta no trecho que chega a esse ponto). Joelhos e tês
+        são detectados automaticamente pela geometria.
       - Paredes: LINE/LWPOLYLINE na layer `wall_layer` (altura `wall_height_m`).
       - Cômodos: polilinha fechada na layer `AF_COMODO_<nome>` (ex.: AF_COMODO_Banheiro);
         os aparelhos dentro do contorno pertencem ao cômodo.
@@ -27,6 +30,7 @@ class ImportConfig:
     fixture_layer: str = "AF_APARELHO"
     source_layer: str = "AF_FONTE"
     wall_layer: str = "AF_PAREDE"
+    fitting_layer: str = "AF_CONEXAO"
     room_layer_prefix: str = "AF_COMODO"
     wall_height_m: float = 2.7
     default_unit: str = "m"            # usada se o DXF não declarar $INSUNITS
