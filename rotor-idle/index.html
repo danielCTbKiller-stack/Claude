@@ -7,12 +7,12 @@
 <style>
 :root{--bg:#1b1f3b;--panel:#262b52;--ink:#e8e6ff;--dim:#9aa0d6;--gold:#ffc83d;--pink:#ff4fa8;--ok:#4ade80}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Courier New",monospace;min-height:100vh}
-header{text-align:center;padding:12px 16px 4px}
+body{margin:0;background:#1b1f3b;color:var(--ink);font-family:"Courier New",monospace;min-height:100vh}
+header{text-align:center;padding:12px 16px 4px;margin-bottom:min(30vh,250px)}
 h1{margin:0;font-size:22px;color:var(--gold);letter-spacing:2px;text-shadow:2px 2px 0 #000}
 .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;padding:12px 16px}
 .stage{flex:1 1 360px;max-width:520px;text-align:center}
-canvas{width:100%;max-width:480px;aspect-ratio:1;cursor:pointer;image-rendering:pixelated;border:3px solid #000;background:#232850;border-radius:8px}
+canvas{width:100%;max-width:480px;aspect-ratio:1;cursor:pointer;image-rendering:pixelated;border:3px solid #000;background:rgba(35,40,80,.85);border-radius:8px}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
 .stat{background:var(--panel);border:2px solid #000;padding:6px;border-radius:6px}
 .stat b{display:block;font-size:18px;color:var(--gold)}
@@ -28,11 +28,15 @@ button{font:inherit;cursor:pointer}
 .item .cost{color:var(--gold);white-space:nowrap}
 .item .lv{color:var(--ok);font-size:12px}
 #redline{background:#7a1d3a}
+#bg{position:absolute;top:0;left:0;width:100vw;height:100vh;z-index:-1;border:0;border-radius:0;max-width:none;aspect-ratio:auto;cursor:default;background:#3d7a3a}
+.stat,.item{background:rgba(38,43,82,.88)!important}
+header,.shop h2{text-shadow:2px 2px 0 #000}
 .foot{text-align:center;font-size:11px;color:var(--dim);padding:8px 16px 20px}
 .foot button{background:none;border:1px solid var(--dim);color:var(--dim);border-radius:4px;padding:2px 8px}
 </style>
 </head>
 <body>
+<canvas id="bg"></canvas>
 <header><h1>⚙ ROTOR IDLE 13B ⚙</h1><div style="font-size:12px;color:var(--dim)">Sem pistões: um triângulo girando fora do centro</div></header>
 <div class="wrap">
   <div class="stage">
@@ -42,6 +46,8 @@ button{font:inherit;cursor:pointer}
       <div class="stat"><b id="rpm">0</b><span>RPM</span></div>
       <div class="stat"><b id="pps">0</b><span>por segundo</span></div>
       <div class="stat"><b id="ppc">1</b><span>por ignição</span></div>
+      <div class="stat"><b id="kmh">0</b><span>km/h</span></div>
+      <div class="stat"><b id="ovt">0</b><span>Ultrapassagens</span></div>
     </div>
     <button id="fire">🔥 IGNIÇÃO! (ou clique no rotor)</button>
   </div>
@@ -146,12 +152,70 @@ function draw(){
  ctx.fillText(flash>.3?'BURNS + PUSHES!':'INTAKE · COMPRESS',240,29);
 }
 
+
+// ---- Isometric road ----
+const bg=document.getElementById('bg'),bx=bg.getContext('2d');
+let W,H;function rs(){W=bg.width=innerWidth;H=bg.height=innerHeight}addEventListener('resize',rs);rs();
+const SC=16,LANES=[-4.5,-1.5,1.5,4.5];let pos=0,plX=1.5,plTarget=1.5,enemies=[],ovt=0,kmh=0,popups=[];
+const ECOL=['#f5f5f5','#2b6cff','#ffd400','#333','#16a34a','#9333ea','#f97316'];
+function P(x,y,z){const ox=W*0.5,oy=Math.min(H*0.24,190);return[ox+(x-y)*0.866*SC,oy+(x+y)*0.5*SC-z*SC]}
+function poly(pts,c){bx.fillStyle=c;bx.beginPath();pts.forEach((p,i)=>{const q=P(...p);i?bx.lineTo(q[0],q[1]):bx.moveTo(q[0],q[1])});bx.closePath();bx.fill();bx.strokeStyle='rgba(0,0,0,.6)';bx.lineWidth=1;bx.stroke()}
+function shade(c,k){const n=parseInt(c.slice(1),16);const f=v=>Math.max(0,Math.min(255,v*k|0));return`rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`}
+function box(x,y,z,w,l,h,c){
+ poly([[x,y,z+h],[x+w,y,z+h],[x+w,y+l,z+h],[x,y+l,z+h]],c);
+ poly([[x+w,y,z],[x+w,y+l,z],[x+w,y+l,z+h],[x+w,y,z+h]],shade(c,.75));
+ poly([[x,y+l,z],[x+w,y+l,z],[x+w,y+l,z+h],[x,y+l,z+h]],shade(c,.55))}
+function car(x,y,c,me){ // x lane centre, y front of car (forward = -y)
+ const w=2,l=4.4;bx.fillStyle='rgba(0,0,0,.3)';poly([[x-1.1,y,0],[x+1.1,y,0],[x+1.1,y+l+.2,0],[x-1.1,y+l+.2,0]],'rgba(0,0,0,.3)');
+ box(x-1,y,0.25,w,l,0.6,c);           // body
+ box(x-.85,y+1.4,0.85,1.7,1.9,0.5,me?'#1e2a44':'#334');// cabin (glass)
+ box(x-.8,y+1.5,1.35,1.6,1.6,0.05,c); // roof
+ if(me){box(x-1,y+l-.3,0.85,w,.3,.25,'#111');} // spoiler
+ bx.fillStyle='#111';[[x-1,y+.8],[x+1,y+.8],[x-1,y+3.4],[x+1,y+3.4]].forEach(([a,b])=>{const q=P(a,b,.3);bx.beginPath();bx.ellipse(q[0],q[1],5,4,0,0,7);bx.fill()});
+ const t=P(x+1,y+l,.6);bx.fillStyle='#ff2020';bx.fillRect(t[0]-6,t[1]-2,6,3);}
+function road(dt,rpm){
+ kmh=Math.min(400,80+rpm/9000*220+Math.log10(1+perSec())*15)*(1+spin*0.01);
+ const v=kmh/3.6/1.5;pos+=v*dt;kmh_el.textContent=Math.round(kmh);
+ // enemies
+ while(enemies.length<7){const ahead=enemies.reduce((m,e)=>Math.max(m,e.f),pos+20);
+  enemies.push({f:ahead+15+Math.random()*25,x:LANES[Math.random()*4|0],v:8+Math.random()*10,c:ECOL[Math.random()*ECOL.length|0]})}
+ enemies.forEach(e=>{e.f+=e.v*dt;const r=e.f-pos;
+  if(!e.passed&&r<-1){e.passed=1;ovt++;const b=perClick()*5+perSec()*3;gain(b);popups.push({t:'ULTRAPASSOU! +'+fmt(b),l:1.4});ovt_el.textContent=ovt}});
+ enemies=enemies.filter(e=>e.f-pos>-40);
+ // player avoids cars: change lane if one is close ahead in same lane
+ const block=enemies.find(e=>Math.abs(e.x-plTarget)<.5&&e.f-pos>0&&e.f-pos<14);
+ if(block){const free=LANES.filter(L=>!enemies.some(e=>Math.abs(e.x-L)<.5&&Math.abs(e.f-pos)<9));
+  if(free.length)plTarget=free.sort((a,b)=>Math.abs(a-plX)-Math.abs(b-plX))[0]}
+ plX+=(plTarget-plX)*Math.min(1,dt*4);
+ // draw
+ bx.fillStyle='#3d7a3a';bx.fillRect(0,0,W,H);
+ const far=-70,near=40;
+ poly([[-12,far,0],[-7,far,0],[-7,near,0],[-12,near,0]],'#4a8f45');
+ poly([[-7,far,0],[7,far,0],[7,near,0],[-7,near,0]],'#4a4a55');
+ poly([[-7.4,far,0],[-7,far,0],[-7,near,0],[-7.4,near,0]],'#eee');
+ poly([[7,far,0],[7.4,far,0],[7.4,near,0],[7,near,0]],'#eee');
+ const off=pos%6;
+ for(let y=far-6;y<near;y+=6){const yy=y+off;[-3,0,3].forEach(x=>poly([[x-.12,yy,0],[x+.12,yy,0],[x+.12,yy+3,0],[x-.12,yy+3,0]],x?'#ddd':'#e8c32a'))}
+ // kerbs
+ const ko=pos%2;for(let y=far-2;y<near;y+=2){const yy=y+ko;poly([[7.4,yy,0],[8.2,yy,0],[8.2,yy+1,0],[7.4,yy+1,0]],'#d22');poly([[-8.2,yy,0],[-7.4,yy,0],[-7.4,yy+1,0],[-8.2,yy+1,0]],'#d22')}
+ // objects sorted by depth
+ const objs=[];const to=pos%10;
+ for(let y=far-10;y<near;y+=10){const yy=y+to;objs.push({d:-14+yy,f:()=>{box(-14.5,yy,0,1,1,1.6,'#6b4423');box(-15.5,yy-1,1.6,3,3,2.4,'#2f6b2a')}});
+  objs.push({d:11+yy,f:()=>{box(10,yy,0,.4,.4,3,'#999');box(9.5,yy,3,1.4,.4,.3,'#ffd')}})}
+ enemies.forEach(e=>{const y=-(e.f-pos);objs.push({d:e.x+y,f:()=>car(e.x,y,e.c)})});
+ objs.push({d:plX,f:()=>car(plX,0,'#c8102e',1)});
+ objs.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
+ // speed lines
+ if(kmh>150){bx.strokeStyle='rgba(255,255,255,.25)';for(let i=0;i<(kmh-150)/10;i++){const x=Math.random()*W,y=Math.random()*H;bx.beginPath();bx.moveTo(x,y);bx.lineTo(x-40,y+23);bx.stroke()}}
+ popups=popups.filter(p=>(p.l-=dt)>0);popups.forEach((p,i)=>{const q=P(plX,0,3+(1.4-p.l)*3);bx.font='bold 18px Courier New';bx.textAlign='center';bx.fillStyle='#000';bx.fillText(p.t,q[0]+2,q[1]+2-i*20);bx.fillStyle='#ffc83d';bx.fillText(p.t,q[0],q[1]-i*20)});
+}
+const kmh_el=document.getElementById('kmh'),ovt_el=document.getElementById('ovt');
 let last=performance.now(),acc=0;
 function loop(t){const dt=Math.min(.1,(t-last)/1000);last=t;
  const ps=perSec();gain(ps*dt);
  const target=Math.min(9000,600+Math.log10(1+ps)*1400);spin*=Math.pow(.2,dt);
  const rpm=target+spin*300;crank+=rpm/60*2*Math.PI*dt/40;flash=Math.max(0,flash-dt*3);
- document.getElementById('rpm').textContent=Math.round(rpm);
+ document.getElementById('rpm').textContent=Math.round(rpm);road(dt,rpm);
  acc+=dt;if(acc>.25){acc=0;render()}
  draw();requestAnimationFrame(loop)}
 render();requestAnimationFrame(loop);
