@@ -8,7 +8,11 @@
 :root{--bg:#1b1f3b;--panel:#262b52;--ink:#e8e6ff;--dim:#9aa0d6;--gold:#ffc83d;--pink:#ff4fa8;--ok:#4ade80}
 *{box-sizing:border-box}
 body{margin:0;background:#1b1f3b;color:var(--ink);font-family:"Courier New",monospace;min-height:100vh}
-header{text-align:center;padding:12px 16px 4px;margin-bottom:min(30vh,250px)}
+header{text-align:center;padding:12px 16px 4px;width:470px}
+.wrap{flex-direction:column;flex-wrap:nowrap;width:470px;align-items:stretch}
+.shop{order:-1;max-width:none;flex:none}.stage{max-width:none;flex:none}
+body{background:#1b1f3b}
+@media(max-width:800px){#bg{width:100vw;height:40vh}header,.wrap{width:auto}header{margin-top:40vh}}
 h1{margin:0;font-size:22px;color:var(--gold);letter-spacing:2px;text-shadow:2px 2px 0 #000}
 .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;padding:12px 16px}
 .stage{flex:1 1 360px;max-width:520px;text-align:center}
@@ -28,7 +32,7 @@ button{font:inherit;cursor:pointer}
 .item .cost{color:var(--gold);white-space:nowrap}
 .item .lv{color:var(--ok);font-size:12px}
 #redline{background:#7a1d3a}
-#bg{position:absolute;top:0;left:0;width:100vw;height:100vh;z-index:-1;border:0;border-radius:0;max-width:none;aspect-ratio:auto;cursor:default;background:#3d7a3a}
+#bg{position:fixed;top:0;right:0;width:calc(100vw - 470px);height:100vh;z-index:-1;border:0;border-radius:0;max-width:none;aspect-ratio:auto;cursor:default;background:#3d7a3a}
 .stat,.item{background:rgba(38,43,82,.88)!important}
 header,.shop h2{text-shadow:2px 2px 0 #000}
 .foot{text-align:center;font-size:11px;color:var(--dim);padding:8px 16px 20px}
@@ -58,7 +62,7 @@ header,.shop h2{text-shadow:2px 2px 0 #000}
     <button class="item" id="redline"></button>
   </div>
 </div>
-<div class="foot">Salvo automaticamente • <button id="reset">Resetar tudo</button></div>
+<div class="foot" style="width:470px">Salvo automaticamente • <button id="reset">Resetar tudo</button></div>
 <script>
 const UP=[
  {id:'plug',n:'Vela de ignição extra',d:'+1 por ignição',c:15,g:1.5,click:1},
@@ -155,10 +159,10 @@ function draw(){
 
 // ---- Isometric road ----
 const bg=document.getElementById('bg'),bx=bg.getContext('2d');
-let W,H;function rs(){W=bg.width=innerWidth;H=bg.height=innerHeight}addEventListener('resize',rs);rs();
+let W,H;function rs(){W=bg.width=bg.clientWidth;H=bg.height=bg.clientHeight}addEventListener('resize',rs);rs();
 const SC=16,LANES=[-4.5,-1.5,1.5,4.5];let pos=0,plX=1.5,plTarget=1.5,enemies=[],ovt=0,kmh=0,popups=[];
 const ECOL=['#f5f5f5','#2b6cff','#ffd400','#333','#16a34a','#9333ea','#f97316'];
-function P(x,y,z){const ox=W*0.5,oy=Math.min(H*0.24,190);return[ox+(x-y)*0.866*SC,oy+(x+y)*0.5*SC-z*SC]}
+function P(x,y,z){const ox=W*0.5,oy=H*0.5;return[ox+(x-y)*0.866*SC,oy+(x+y)*0.5*SC-z*SC]}
 function poly(pts,c){bx.fillStyle=c;bx.beginPath();pts.forEach((p,i)=>{const q=P(...p);i?bx.lineTo(q[0],q[1]):bx.moveTo(q[0],q[1])});bx.closePath();bx.fill();bx.strokeStyle='rgba(0,0,0,.6)';bx.lineWidth=1;bx.stroke()}
 function shade(c,k){const n=parseInt(c.slice(1),16);const f=v=>Math.max(0,Math.min(255,v*k|0));return`rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`}
 function box(x,y,z,w,l,h,c){
