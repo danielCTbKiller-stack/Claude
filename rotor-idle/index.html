@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rotor Idle 13B</title>
+<style>
+:root{--bg:#1b1f3b;--panel:#262b52;--ink:#e8e6ff;--dim:#9aa0d6;--gold:#ffc83d;--pink:#ff4fa8;--ok:#4ade80}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Courier New",monospace;min-height:100vh}
+header{text-align:center;padding:12px 16px 4px}
+h1{margin:0;font-size:22px;color:var(--gold);letter-spacing:2px;text-shadow:2px 2px 0 #000}
+.wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;padding:12px 16px}
+.stage{flex:1 1 360px;max-width:520px;text-align:center}
+canvas{width:100%;max-width:480px;aspect-ratio:1;cursor:pointer;image-rendering:pixelated;border:3px solid #000;background:#232850;border-radius:8px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
+.stat{background:var(--panel);border:2px solid #000;padding:6px;border-radius:6px}
+.stat b{display:block;font-size:18px;color:var(--gold)}
+.stat span{font-size:11px;color:var(--dim)}
+button{font:inherit;cursor:pointer}
+#fire{width:100%;padding:14px;font-size:18px;font-weight:bold;background:var(--pink);color:#fff;border:3px solid #000;border-radius:8px;box-shadow:0 4px 0 #000}
+#fire:active{transform:translateY(3px);box-shadow:0 1px 0 #000}
+.shop{flex:1 1 320px;max-width:440px}
+.shop h2{font-size:16px;color:var(--gold);margin:4px 0 8px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:var(--panel);color:var(--ink);border:2px solid #000;border-radius:6px;padding:8px;margin-bottom:6px}
+.item:disabled{opacity:.45;cursor:not-allowed}
+.item small{display:block;color:var(--dim);font-size:11px}
+.item .cost{color:var(--gold);white-space:nowrap}
+.item .lv{color:var(--ok);font-size:12px}
+#redline{background:#7a1d3a}
+.foot{text-align:center;font-size:11px;color:var(--dim);padding:8px 16px 20px}
+.foot button{background:none;border:1px solid var(--dim);color:var(--dim);border-radius:4px;padding:2px 8px}
+</style>
+</head>
+<body>
+<header><h1>⚙ ROTOR IDLE 13B ⚙</h1><div style="font-size:12px;color:var(--dim)">Sem pistões: um triângulo girando fora do centro</div></header>
+<div class="wrap">
+  <div class="stage">
+    <canvas id="c" width="480" height="480"></canvas>
+    <div class="stats">
+      <div class="stat"><b id="pts">0</b><span>Pontos de Combustão</span></div>
+      <div class="stat"><b id="rpm">0</b><span>RPM</span></div>
+      <div class="stat"><b id="pps">0</b><span>por segundo</span></div>
+      <div class="stat"><b id="ppc">1</b><span>por ignição</span></div>
+    </div>
+    <button id="fire">🔥 IGNIÇÃO! (ou clique no rotor)</button>
+  </div>
+  <div class="shop">
+    <h2>OFICINA</h2>
+    <div id="shop"></div>
+    <h2>REDLINE (Prestígio)</h2>
+    <button class="item" id="redline"></button>
+  </div>
+</div>
+<div class="foot">Salvo automaticamente • <button id="reset">Resetar tudo</button></div>
+<script>
+const UP=[
+ {id:'plug',n:'Vela de ignição extra',d:'+1 por ignição',c:15,g:1.5,click:1},
+ {id:'seal',n:'Apex seals novos',d:'+1/s (compressão melhor)',c:25,g:1.15,ps:1},
+ {id:'carb',n:'Carburador Nikki',d:'+5/s',c:150,g:1.15,ps:5},
+ {id:'port',n:'Street port',d:'+20/s',c:1100,g:1.15,ps:20},
+ {id:'turbo',n:'Twin-turbo sequencial',d:'+90/s',c:9000,g:1.15,ps:90},
+ {id:'bport',n:'Bridge port',d:'+400/s',c:70000,g:1.15,ps:400},
+ {id:'peri',n:'Peripheral port',d:'+2000/s',c:600000,g:1.15,ps:2000},
+ {id:'r26',n:'Motor 4 rotores 26B',d:'+12000/s',c:7e6,g:1.15,ps:12000},
+ {id:'intc',n:'Intercooler',d:'x2 por ignição',c:500,g:6,mult:1},
+];
+let S={p:0,tot:0,lv:{},boost:0};
+try{const s=JSON.parse(localStorage.getItem('rotor13b'));if(s)S=Object.assign(S,s)}catch(e){}
+const lv=id=>S.lv[id]||0;
+const cost=u=>Math.ceil(u.c*Math.pow(u.g,lv(u.id)));
+const bonus=()=>1+S.boost*0.25;
+const perClick=()=>(1+lv('plug'))*Math.pow(2,lv('intc'))*bonus();
+const perSec=()=>UP.reduce((a,u)=>a+(u.ps||0)*lv(u.id),0)*bonus();
+const redGain=()=>Math.floor(Math.sqrt(S.tot/1e5));
+const fmt=n=>{if(n<1000)return n<10&&n%1?n.toFixed(1):Math.floor(n).toString();const s=['k','M','B','T','Qa','Qi'];let i=-1;while(n>=1000&&i<s.length-1){n/=1000;i++}return n.toFixed(2)+s[i]};
+
+const shop=document.getElementById('shop');
+UP.forEach(u=>{const b=document.createElement('button');b.className='item';b.id='u_'+u.id;
+ b.onclick=()=>{const c=cost(u);if(S.p>=c){S.p-=c;S.lv[u.id]=lv(u.id)+1;render()}};shop.appendChild(b)});
+document.getElementById('redline').onclick=()=>{const g=redGain();if(g<1)return;
+ if(!confirm('Bater no redline? Reseta tudo e ganha '+g+' Boost (+25% permanente cada).'))return;
+ S={p:0,tot:0,lv:{},boost:S.boost+g};render()};
+document.getElementById('reset').onclick=()=>{if(confirm('Apagar todo o progresso?')){S={p:0,tot:0,lv:{},boost:0};save();render()}};
+
+function render(){
+ pts.textContent=fmt(S.p);pps.textContent=fmt(perSec());ppc.textContent=fmt(perClick());
+ UP.forEach(u=>{const b=document.getElementById('u_'+u.id),c=cost(u);
+  b.innerHTML=`<div>${u.n} <span class="lv">Nv ${lv(u.id)}</span><small>${u.d}</small></div><span class="cost">${fmt(c)}</span>`;
+  b.disabled=S.p<c});
+ const g=redGain(),r=document.getElementById('redline');
+ r.innerHTML=`<div>Boost atual: ${S.boost} (+${S.boost*25}%)<small>Reseta e ganha ${g} Boost. Precisa de 100k pontos totais.</small></div><span class="cost">+${g}</span>`;
+ r.disabled=g<1;
+}
+function gain(n){S.p+=n;S.tot+=n}
+function save(){try{localStorage.setItem('rotor13b',JSON.stringify(S))}catch(e){}}
+setInterval(save,5000);
+
+// ---- Rotor animation ----
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const CX=240,CY=240,R=150,E=22;
+let crank=0,spin=0,flash=0,parts=[];
+function fire(){gain(perClick());spin+=4;flash=1;
+ for(let i=0;i<10;i++)parts.push({x:CX+170,y:CY+40,vx:-Math.random()*4-1,vy:(Math.random()-.5)*4,l:30});render()}
+document.getElementById('fire').onclick=fire;cv.onclick=fire;
+
+function housing(){ctx.beginPath();for(let i=0;i<=360;i++){const t=i*Math.PI/180;
+ const x=E*Math.cos(3*t)+R*1.07*Math.cos(t),y=E*Math.sin(3*t)+R*1.07*Math.sin(t);
+ i?ctx.lineTo(CX+y,CY+x):ctx.moveTo(CX+y,CY+x)}ctx.closePath()}
+
+function draw(){
+ ctx.clearRect(0,0,480,480);
+ // outer casing
+ ctx.fillStyle='#e9d9a6';ctx.strokeStyle='#000';ctx.lineWidth=4;
+ ctx.beginPath();ctx.ellipse(CX,CY,215,200,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+ // water jackets
+ ctx.strokeStyle='#2e3466';ctx.lineWidth=10;ctx.setLineDash([40,18]);
+ ctx.beginPath();ctx.ellipse(CX,CY,195,180,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+ // chamber
+ housing();ctx.fillStyle='#6b72b0';ctx.fill();ctx.lineWidth=4;ctx.strokeStyle='#000';ctx.stroke();
+ // rotor
+ const rx=CX+E*Math.sin(crank),ry=CY+E*Math.cos(crank),ra=crank/3;
+ const ap=[0,1,2].map(k=>{const a=ra+k*2*Math.PI/3;return[rx+R*Math.cos(a),ry+R*Math.sin(a)]});
+ // combustion glow in chamber nearest spark plug (right side)
+ if(flash>0){ctx.save();housing();ctx.clip();
+  ctx.fillStyle=`rgba(255,${80+flash*100|0},40,${flash*.8})`;ctx.beginPath();
+  ctx.arc(CX+170,CY+30,120,0,Math.PI*2);ctx.fill();ctx.restore()}
+ ctx.beginPath();ap.forEach((p,i)=>{const q=ap[(i+1)%3];const mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2;
+  const cx=rx+(mx-rx)*1.35,cy=ry+(my-ry)*1.35;i?0:ctx.moveTo(p[0],p[1]);ctx.quadraticCurveTo(cx,cy,q[0],q[1])});
+ ctx.closePath();ctx.fillStyle='#b9bde0';ctx.fill();ctx.lineWidth=4;ctx.strokeStyle='#000';ctx.stroke();
+ // apex seals
+ ['#a855f7','#4ade80','#ff4fa8'].forEach((c,i)=>{ctx.fillStyle=c;ctx.beginPath();ctx.arc(ap[i][0],ap[i][1],9,0,7);ctx.fill();ctx.stroke()});
+ // internal gear + eccentric shaft
+ ctx.strokeStyle='#555b8f';ctx.lineWidth=8;ctx.setLineDash([6,5]);
+ ctx.beginPath();ctx.arc(rx,ry,62,0,7);ctx.stroke();ctx.setLineDash([]);
+ ctx.fillStyle='#8a90c4';ctx.beginPath();ctx.arc(CX,CY,40,0,7);ctx.fill();ctx.lineWidth=3;ctx.stroke();
+ ctx.strokeStyle='#1b1f3b';ctx.lineWidth=7;ctx.beginPath();
+ ctx.moveTo(CX-30*Math.sin(crank),CY-30*Math.cos(crank));ctx.lineTo(CX+30*Math.sin(crank),CY+30*Math.cos(crank));ctx.stroke();
+ // spark plugs
+ ctx.fillStyle='#ccc';ctx.strokeStyle='#000';ctx.lineWidth=3;
+ [[CY+5],[CY+45]].forEach(([y])=>{ctx.fillRect(CX+200,y-8,50,16);ctx.strokeRect(CX+200,y-8,50,16)});
+ // particles
+ parts=parts.filter(p=>p.l-->0);parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;ctx.fillStyle=`hsl(${20+p.l},100%,55%)`;ctx.fillRect(p.x,p.y,5,5)});
+ // label
+ ctx.fillStyle='#000';ctx.fillRect(110,8,260,30);ctx.fillStyle='#ffc83d';ctx.font='bold 16px Courier New';ctx.textAlign='center';
+ ctx.fillText(flash>.3?'BURNS + PUSHES!':'INTAKE · COMPRESS',240,29);
+}
+
+let last=performance.now(),acc=0;
+function loop(t){const dt=Math.min(.1,(t-last)/1000);last=t;
+ const ps=perSec();gain(ps*dt);
+ const target=Math.min(9000,600+Math.log10(1+ps)*1400);spin*=Math.pow(.2,dt);
+ const rpm=target+spin*300;crank+=rpm/60*2*Math.PI*dt/40;flash=Math.max(0,flash-dt*3);
+ document.getElementById('rpm').textContent=Math.round(rpm);
+ acc+=dt;if(acc>.25){acc=0;render()}
+ draw();requestAnimationFrame(loop)}
+render();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
